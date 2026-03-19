@@ -175,6 +175,8 @@ func admin(g *gin.RouterGroup) {
 	index.POST("/stop", middlewares.SearchIndex, handles.StopIndex)
 	index.POST("/clear", middlewares.SearchIndex, handles.ClearIndex)
 	index.GET("/progress", middlewares.SearchIndex, handles.GetProgress)
+	index.POST("/import_sqlite", middlewares.SearchIndex, handles.ImportSQLiteIndex)
+	index.POST("/incremental", middlewares.SearchIndex, handles.IncrementalIndex)
 
 	label := g.Group("/label")
 	label.POST("/create", handles.CreateLabel)
