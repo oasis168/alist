@@ -1,19 +1,7 @@
-name: Issues Similarity Analysis
-
-on:
-  issues:
-    types: [opened, edited]
-
+# Disabled: this workflow is from upstream alist-org/alist and not used in alist-pro
+on: workflow_dispatch
 jobs:
-  similarity-analysis:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: analysis
-        uses: actions-cool/issues-similarity-analysis@v1
-        with:
-          filter-threshold: 0.5
-          comment-title: '### See'
-          comment-body: '${index}. ${similarity} #${number}'
-          show-footer: false
-          show-mentioned: true
-          since-days: 730
+      - run: echo disabled
