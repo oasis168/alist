@@ -1,0 +1,89 @@
+name: release_oasis
+
+on:
+  push:
+    tags:
+      - 'v*-oasis*'
+
+jobs:
+  release_linux_musl:
+    name: Build Linux (musl)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch web dist
+        run: bash build.sh release web
+      - name: Build linux musl
+        run: bash build.sh release linux_musl
+      - name: Upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/compress/*
+          prerelease: false
+
+  release_linux_musl_arm:
+    name: Build Linux ARM (musl)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch web dist
+        run: bash build.sh release web
+      - name: Build linux musl arm
+        run: bash build.sh release linux_musl_arm
+      - name: Upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/compress/*
+          prerelease: false
+
+  release_main:
+    name: Build Windows and macOS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          sudo snap install zig --classic --beta
+          docker pull crazymax/xgo:latest
+          go install github.com/crazy-max/xgo@latest
+          sudo apt install upx
+      - name: Fetch web dist
+        run: bash build.sh release web
+      - name: Build
+        run: bash build.sh release
+      - name: Upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/compress/*
+          prerelease: false
