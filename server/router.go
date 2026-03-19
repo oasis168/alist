@@ -178,6 +178,10 @@ func admin(g *gin.RouterGroup) {
 	index.POST("/import_sqlite", middlewares.SearchIndex, handles.ImportSQLiteIndex)
 	index.POST("/incremental", middlewares.SearchIndex, handles.IncrementalIndex)
 
+	baiduGroup := g.Group("/baidu")
+	baiduGroup.POST("/transfer", handles.BaiduTransfer)
+	baiduGroup.POST("/share", handles.BaiduShare)
+
 	label := g.Group("/label")
 	label.POST("/create", handles.CreateLabel)
 	label.POST("/update", handles.UpdateLabel)
