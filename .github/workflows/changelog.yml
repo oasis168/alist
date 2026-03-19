@@ -9,6 +9,8 @@ jobs:
   changelog:
     name: Create Release
     runs-on: ubuntu-latest
+    # 只在非 oasis 定制版 tag 时运行
+    if: "!contains(github.ref, '-oasis')"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,6 +21,6 @@ jobs:
         run: git tag -d beta
         continue-on-error: true
 
-      - run: npx changelogithub # or changelogithub@0.12 if ensure the stable result
+      - run: npx changelogithub
         env:
           GITHUB_TOKEN: ${{secrets.MY_TOKEN}}
