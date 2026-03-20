@@ -177,6 +177,8 @@ func admin(g *gin.RouterGroup) {
 	index.GET("/progress", middlewares.SearchIndex, handles.GetProgress)
 	index.POST("/import_sqlite", middlewares.SearchIndex, handles.ImportSQLiteIndex)
 	index.POST("/incremental", middlewares.SearchIndex, handles.IncrementalIndex)
+	index.GET("/list_db_files", handles.ListServerDbFiles)
+	index.POST("/import_sqlite_server", middlewares.SearchIndex, handles.ImportServerDbFile)
 
 	baiduGroup := g.Group("/baidu")
 	baiduGroup.POST("/transfer", handles.BaiduTransfer)
