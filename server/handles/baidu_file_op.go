@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -130,6 +131,9 @@ func BaiduFileTransfer(c *gin.Context) {
 		common.ErrorResp(c, err, 400)
 		return
 	}
+	if decoded, err := url.PathUnescape(req.Path); err == nil {
+		req.Path = decoded
+	}
 
 	// 读取目标账号 Cookie
 	cookieItem, err := op.GetSettingItemByKey(conf.BaiduTransferCookie)
@@ -214,6 +218,9 @@ func BaiduFileShare(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.ErrorResp(c, err, 400)
 		return
+	}
+	if decoded, err := url.PathUnescape(req.Path); err == nil {
+		req.Path = decoded
 	}
 	if req.Period == 0 {
 		req.Period = 7
