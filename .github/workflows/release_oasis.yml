@@ -3,7 +3,7 @@ name: release_oasis
 on:
   push:
     tags:
-      - 'v*-oasis*'
+      - "v*-oasis*"
 
 jobs:
   release_linux_musl:
@@ -13,18 +13,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: "1.23"
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fetch web dist (oasis)
-        run: |
-          curl -L https://github.com/oasis168/alist-web/releases/latest/download/dist.tar.gz -o dist.tar.gz
-          tar -zxvf dist.tar.gz
-          rm -rf public/dist
-          mv -f dist public
-          rm -rf dist.tar.gz
       - name: Build linux musl
         run: bash build.sh release linux_musl
       - name: Upload assets
@@ -40,18 +33,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: "1.23"
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fetch web dist (oasis)
-        run: |
-          curl -L https://github.com/oasis168/alist-web/releases/latest/download/dist.tar.gz -o dist.tar.gz
-          tar -zxvf dist.tar.gz
-          rm -rf public/dist
-          mv -f dist public
-          rm -rf dist.tar.gz
       - name: Build linux musl arm
         run: bash build.sh release linux_musl_arm
       - name: Upload assets
@@ -77,7 +63,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: "1.23"
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -91,13 +77,6 @@ jobs:
           docker pull crazymax/xgo:latest
           go install github.com/crazy-max/xgo@latest
           sudo apt-get install -y upx
-      - name: Fetch web dist (oasis)
-        run: |
-          curl -L https://github.com/oasis168/alist-web/releases/latest/download/dist.tar.gz -o dist.tar.gz
-          tar -zxvf dist.tar.gz
-          rm -rf public/dist
-          mv -f dist public
-          rm -rf dist.tar.gz
       - name: Build
         run: bash build.sh release
       - name: Upload assets
