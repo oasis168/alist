@@ -125,6 +125,10 @@ const (
 	FTPTLSPrivateKeyPath = "ftp_tls_private_key_path"
 	FTPTLSPublicCertPath = "ftp_tls_public_cert_path"
 
+	// baidu transfer
+	BaiduTransferCookie = "baidu_transfer_cookie"
+	BaiduTransferDest   = "baidu_transfer_dest"
+
 	// traffic
 	TaskOfflineDownloadThreadsNum         = "offline_download_task_threads_num"
 	TaskOfflineDownloadTransferThreadsNum = "offline_download_transfer_task_threads_num"

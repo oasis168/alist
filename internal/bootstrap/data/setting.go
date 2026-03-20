@@ -231,6 +231,10 @@ func InitialSettings() []model.SettingItem {
 		{Key: conf.StreamMaxClientUploadSpeed, Value: "-1", Type: conf.TypeNumber, Group: model.TRAFFIC, Flag: model.PRIVATE},
 		{Key: conf.StreamMaxServerDownloadSpeed, Value: "-1", Type: conf.TypeNumber, Group: model.TRAFFIC, Flag: model.PRIVATE},
 		{Key: conf.StreamMaxServerUploadSpeed, Value: "-1", Type: conf.TypeNumber, Group: model.TRAFFIC, Flag: model.PRIVATE},
+
+		// baidu transfer settings
+		{Key: conf.BaiduTransferCookie, Value: "", Type: conf.TypeText, Group: model.BAIDU, Flag: model.PRIVATE, Help: "目标百度网盘账号的Cookie(BDUSS=xxx;STOKEN=xxx)"},
+		{Key: conf.BaiduTransferDest, Value: "/我的资源", Type: conf.TypeString, Group: model.BAIDU, Flag: model.PRIVATE, Help: "默认转存目标路径"},
 	}
 	initialSettingItems = append(initialSettingItems, tool.Tools.Items()...)
 	if flags.Dev {

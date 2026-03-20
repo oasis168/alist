@@ -181,6 +181,8 @@ func admin(g *gin.RouterGroup) {
 	baiduGroup := g.Group("/baidu")
 	baiduGroup.POST("/transfer", handles.BaiduTransfer)
 	baiduGroup.POST("/share", handles.BaiduShare)
+	baiduGroup.POST("/transfer_file", handles.BaiduFileTransfer)
+	baiduGroup.POST("/share_file", handles.BaiduFileShare)
 
 	label := g.Group("/label")
 	label.POST("/create", handles.CreateLabel)
