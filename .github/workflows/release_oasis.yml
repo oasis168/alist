@@ -18,8 +18,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fetch web dist
-        run: bash build.sh release web
+      - name: Fetch web dist (oasis)
+        run: |
+          curl -L https://github.com/oasis168/alist-web/releases/latest/download/dist.tar.gz -o dist.tar.gz
+          tar -zxvf dist.tar.gz
+          rm -rf public/dist
+          mv -f dist public
+          rm -rf dist.tar.gz
       - name: Build linux musl
         run: bash build.sh release linux_musl
       - name: Upload assets
@@ -40,8 +45,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fetch web dist
-        run: bash build.sh release web
+      - name: Fetch web dist (oasis)
+        run: |
+          curl -L https://github.com/oasis168/alist-web/releases/latest/download/dist.tar.gz -o dist.tar.gz
+          tar -zxvf dist.tar.gz
+          rm -rf public/dist
+          mv -f dist public
+          rm -rf dist.tar.gz
       - name: Build linux musl arm
         run: bash build.sh release linux_musl_arm
       - name: Upload assets
@@ -81,8 +91,13 @@ jobs:
           docker pull crazymax/xgo:latest
           go install github.com/crazy-max/xgo@latest
           sudo apt-get install -y upx
-      - name: Fetch web dist
-        run: bash build.sh release web
+      - name: Fetch web dist (oasis)
+        run: |
+          curl -L https://github.com/oasis168/alist-web/releases/latest/download/dist.tar.gz -o dist.tar.gz
+          tar -zxvf dist.tar.gz
+          rm -rf public/dist
+          mv -f dist public
+          rm -rf dist.tar.gz
       - name: Build
         run: bash build.sh release
       - name: Upload assets
