@@ -69,12 +69,21 @@ func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) er
 			var (
 				parentPath     string
 				serverFilename string
-				isdir          int
+				isdirRaw       interface{}
 				fileSize       int64
 			)
-			if err = rows.Scan(&parentPath, &serverFilename, &isdir, &fileSize); err != nil {
+			if err = rows.Scan(&parentPath, &serverFilename, &isdirRaw, &fileSize); err != nil {
 				rows.Close()
 				return fmt.Errorf("scan row: %w", err)
+			}
+			isdir := false
+			switch v := isdirRaw.(type) {
+			case bool:
+				isdir = v
+			case int64:
+				isdir = v == 1
+			case string:
+				isdir = v == "1" || v == "true"
 			}
 			parentPath = strings.TrimRight(parentPath, "/")
 			fullParent := mountPrefix + parentPath
@@ -85,7 +94,7 @@ func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) er
 				Parent: fullParent,
 				Obj: &sqliteObj{
 					name:  serverFilename,
-					isDir: isdir == 1,
+					isDir: isdir,
 					size:  fileSize,
 					path:  path.Join(fullParent, serverFilename),
 				},
