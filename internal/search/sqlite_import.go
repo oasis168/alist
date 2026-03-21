@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const sqliteImportBatchSize = 1000
+const sqliteImportBatchSize = 10000
 
 // ImportFromSQLite 从百度网盘导出的 SQLite .db 文件批量导入搜索索引。
 // dbPath: 临时文件路径，导入完成后自动删除。
@@ -47,7 +47,7 @@ func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) er
 		imported int64 = 0
 	)
 
-	WriteProgress(&model.IndexProgress{ObjCount: 0, IsDone: false})
+	WriteProgress(&model.IndexProgress{ObjCount: 0, Total: uint64(total), IsDone: false})
 
 	for {
 		select {
@@ -113,7 +113,7 @@ func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) er
 		imported += int64(len(objs))
 		offset += sqliteImportBatchSize
 		log.Infof("[sqlite_import] imported %d / %d", imported, total)
-		WriteProgress(&model.IndexProgress{ObjCount: uint64(imported), IsDone: false})
+		WriteProgress(&model.IndexProgress{ObjCount: uint64(imported), Total: uint64(total), IsDone: false})
 
 		if int64(len(objs)) < sqliteImportBatchSize {
 			break
@@ -124,6 +124,7 @@ func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) er
 	log.Infof("[sqlite_import] done, total imported: %d", imported)
 	WriteProgress(&model.IndexProgress{
 		ObjCount:     uint64(imported),
+		Total:        uint64(total),
 		IsDone:       true,
 		LastDoneTime: &now,
 	})

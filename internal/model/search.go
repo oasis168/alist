@@ -7,6 +7,7 @@ import (
 
 type IndexProgress struct {
 	ObjCount     uint64     `json:"obj_count"`
+	Total        uint64     `json:"total"`
 	IsDone       bool       `json:"is_done"`
 	LastDoneTime *time.Time `json:"last_done_time"`
 	Error        string     `json:"error"`
