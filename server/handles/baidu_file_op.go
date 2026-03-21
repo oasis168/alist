@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
+	neturl "net/url"
 	"path"
 	"strings"
 	"time"
@@ -23,12 +23,17 @@ var baiduHTTPClient = &http.Client{Timeout: 15 * time.Second}
 func getFsIDByPath(accessToken, filePath string) (int64, error) {
 	dir := path.Dir(filePath)
 	name := path.Base(filePath)
-	url := fmt.Sprintf(
-		"https://pan.baidu.com/rest/2.0/xpan/file?method=search&access_token=%s&key=%s&dir=%s&recursion=0&num=20",
-		accessToken, name, dir,
-	)
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
-	req.Header.Set("User-Agent", "pan.baidu.com")
+	params := neturl.Values{}
+	params.Set("method", "search")
+	params.Set("access_token", accessToken)
+	params.Set("key", name)
+	params.Set("dir", dir)
+	params.Set("recursion", "0")
+	params.Set("num", "20")
+	apiURL := "https://pan.baidu.com/rest/2.0/xpan/file?" + params.Encode()
+	req, _ := http.NewRequest(http.MethodGet, apiURL, nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Referer", "https://pan.baidu.com/")
 	resp, err := baiduHTTPClient.Do(req)
 	if err != nil {
 		return 0, err
@@ -131,7 +136,7 @@ func BaiduFileTransfer(c *gin.Context) {
 		common.ErrorResp(c, err, 400)
 		return
 	}
-	if decoded, err := url.PathUnescape(req.Path); err == nil {
+	if decoded, err := neturl.PathUnescape(req.Path); err == nil {
 		req.Path = decoded
 	}
 
@@ -219,7 +224,7 @@ func BaiduFileShare(c *gin.Context) {
 		common.ErrorResp(c, err, 400)
 		return
 	}
-	if decoded, err := url.PathUnescape(req.Path); err == nil {
+	if decoded, err := neturl.PathUnescape(req.Path); err == nil {
 		req.Path = decoded
 	}
 	if req.Period == 0 {
