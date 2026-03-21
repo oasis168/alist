@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/alist-org/alist/v3/internal/conf"
 	"github.com/alist-org/alist/v3/internal/errs"
@@ -77,11 +78,16 @@ func BatchIndex(ctx context.Context, objs []ObjWithParent) error {
 	}
 	var searchNodes []model.SearchNode
 	for i := range objs {
+		var fsID int64
+		if id := objs[i].GetID(); id != "" {
+			fsID, _ = strconv.ParseInt(id, 10, 64)
+		}
 		searchNodes = append(searchNodes, model.SearchNode{
 			Parent: objs[i].Parent,
 			Name:   objs[i].GetName(),
 			IsDir:  objs[i].IsDir(),
 			Size:   objs[i].GetSize(),
+			FsID:   fsID,
 		})
 	}
 	return instance.BatchIndex(ctx, searchNodes)

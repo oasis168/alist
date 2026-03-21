@@ -12,6 +12,7 @@ import (
 
 	"github.com/alist-org/alist/v3/internal/baidu"
 	"github.com/alist-org/alist/v3/internal/conf"
+	"github.com/alist-org/alist/v3/internal/db"
 	"github.com/alist-org/alist/v3/internal/op"
 	"github.com/alist-org/alist/v3/server/common"
 	"github.com/gin-gonic/gin"
@@ -19,10 +20,18 @@ import (
 
 var baiduHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
-// getFsIDByPath 用 access_token 搜索文件，返回 fs_id
+// getFsIDByPath 优先从本地搜索索引查 fs_id，找不到再降级调百度 API
 func getFsIDByPath(accessToken, filePath string) (int64, error) {
 	dir := path.Dir(filePath)
 	name := path.Base(filePath)
+
+	// 先查本地索引
+	fsID, err := db.GetFsIDByPath(dir, name)
+	if err == nil && fsID > 0 {
+		return fsID, nil
+	}
+
+	// 降级：调百度 API
 	params := neturl.Values{}
 	params.Set("method", "search")
 	params.Set("access_token", accessToken)

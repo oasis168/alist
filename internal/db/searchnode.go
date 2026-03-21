@@ -45,6 +45,16 @@ func ClearSearchNodes() error {
 	return db.Where("1 = 1").Delete(&model.SearchNode{}).Error
 }
 
+func GetFsIDByPath(parent, name string) (int64, error) {
+	var node model.SearchNode
+	err := db.Where(fmt.Sprintf("%s = ? AND %s = ?", columnName("parent"), columnName("name")),
+		parent, name).First(&node).Error
+	if err != nil {
+		return 0, err
+	}
+	return node.FsID, nil
+}
+
 func GetSearchNodesByParent(parent string) ([]model.SearchNode, error) {
 	var nodes []model.SearchNode
 	if err := db.Where(fmt.Sprintf("%s = ?",

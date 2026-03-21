@@ -26,6 +26,7 @@ type SearchNode struct {
 	Name   string `json:"name"`
 	IsDir  bool   `json:"is_dir"`
 	Size   int64  `json:"size"`
+	FsID   int64  `json:"fs_id" gorm:"index"`
 }
 
 func (p *SearchReq) Validate() error {

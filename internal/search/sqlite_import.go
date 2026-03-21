@@ -57,7 +57,7 @@ func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) er
 		}
 
 		rows, err := db.QueryContext(ctx,
-			"SELECT parent_path, server_filename, isdir, file_size FROM cache_file ORDER BY id LIMIT ? OFFSET ?",
+			"SELECT parent_path, server_filename, isdir, file_size, fid FROM cache_file ORDER BY id LIMIT ? OFFSET ?",
 			sqliteImportBatchSize, offset,
 		)
 		if err != nil {
@@ -71,8 +71,9 @@ func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) er
 				serverFilename string
 				isdirRaw       interface{}
 				fileSize       int64
+				fsID           int64
 			)
-			if err = rows.Scan(&parentPath, &serverFilename, &isdirRaw, &fileSize); err != nil {
+			if err = rows.Scan(&parentPath, &serverFilename, &isdirRaw, &fileSize, &fsID); err != nil {
 				rows.Close()
 				return fmt.Errorf("scan row: %w", err)
 			}
@@ -97,6 +98,7 @@ func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) er
 					isDir: isdir,
 					size:  fileSize,
 					path:  path.Join(fullParent, serverFilename),
+					fsID:  fsID,
 				},
 			})
 		}
@@ -137,6 +139,7 @@ type sqliteObj struct {
 	isDir bool
 	size  int64
 	path  string
+	fsID  int64
 }
 
 func (o *sqliteObj) GetName() string           { return o.name }
@@ -145,5 +148,5 @@ func (o *sqliteObj) IsDir() bool               { return o.isDir }
 func (o *sqliteObj) ModTime() time.Time        { return time.Time{} }
 func (o *sqliteObj) CreateTime() time.Time     { return time.Time{} }
 func (o *sqliteObj) GetHash() utils.HashInfo   { return utils.HashInfo{} }
-func (o *sqliteObj) GetID() string             { return "" }
+func (o *sqliteObj) GetID() string             { return fmt.Sprintf("%d", o.fsID) }
 func (o *sqliteObj) GetPath() string           { return o.path }

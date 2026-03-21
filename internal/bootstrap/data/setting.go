@@ -176,6 +176,9 @@ func InitialSettings() []model.SettingItem {
 		{Key: conf.AutoUpdateIndex, Value: "false", Type: conf.TypeBool, Group: model.INDEX},
 		{Key: conf.IgnorePaths, Value: "", Type: conf.TypeText, Group: model.INDEX, Flag: model.PRIVATE, Help: `one path per line`},
 		{Key: conf.MaxIndexDepth, Value: "20", Type: conf.TypeNumber, Group: model.INDEX, Flag: model.PRIVATE, Help: `max depth of index`},
+		{Key: conf.MeilisearchHost, Value: "http://localhost:7700", Type: conf.TypeString, Group: model.INDEX, Help: `Meilisearch host, e.g. http://localhost:7700`},
+		{Key: conf.MeilisearchApiKey, Value: "", Type: conf.TypeString, Group: model.INDEX, Flag: model.PRIVATE, Help: `Meilisearch API key (master key)`},
+		{Key: conf.MeilisearchPrefix, Value: "", Type: conf.TypeString, Group: model.INDEX, Help: `Meilisearch index prefix (optional)`},
 		{Key: conf.IndexProgress, Value: "{}", Type: conf.TypeText, Group: model.SINGLE, Flag: model.PRIVATE},
 
 		// SSO settings

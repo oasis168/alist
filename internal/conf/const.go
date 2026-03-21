@@ -54,10 +54,13 @@ const (
 	DeviceSessionTTL        = "device_session_ttl"
 
 	// index
-	SearchIndex     = "search_index"
-	AutoUpdateIndex = "auto_update_index"
-	IgnorePaths     = "ignore_paths"
-	MaxIndexDepth   = "max_index_depth"
+	SearchIndex        = "search_index"
+	AutoUpdateIndex    = "auto_update_index"
+	IgnorePaths        = "ignore_paths"
+	MaxIndexDepth      = "max_index_depth"
+	MeilisearchHost    = "meilisearch_host"
+	MeilisearchApiKey  = "meilisearch_api_key"
+	MeilisearchPrefix  = "meilisearch_index_prefix"
 
 	// aria2
 	Aria2Uri    = "aria2_uri"
