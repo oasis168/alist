@@ -26,7 +26,7 @@ func CreateSearchNode(node *model.SearchNode) error {
 }
 
 func BatchCreateSearchNodes(nodes *[]model.SearchNode) error {
-	return db.CreateInBatches(nodes, 1000).Error
+	return db.CreateInBatches(nodes, 10000).Error
 }
 
 func DeleteSearchNodesByParent(path string) error {
