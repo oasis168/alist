@@ -26,7 +26,13 @@ func CreateSearchNode(node *model.SearchNode) error {
 }
 
 func BatchCreateSearchNodes(nodes *[]model.SearchNode) error {
-	return db.CreateInBatches(nodes, 10000).Error
+	// SQLite 限制 SQL 变量数（999），SearchNode 有5个字段，每批最多 199 条
+	// MySQL/PostgreSQL 无此限制，使用 10000
+	batchSize := 10000
+	if conf.Conf.Database.Type == "sqlite3" {
+		batchSize = 100
+	}
+	return db.CreateInBatches(nodes, batchSize).Error
 }
 
 func DeleteSearchNodesByParent(path string) error {

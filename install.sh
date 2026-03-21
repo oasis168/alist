@@ -390,6 +390,62 @@ EOF
 
   systemctl daemon-reload
   systemctl enable alist >/dev/null 2>&1
+
+  # 询问是否安装 Meilisearch
+  echo -e "\r\n${GREEN_COLOR}是否同时安装 Meilisearch 搜索引擎？（推荐，支持千万级文件秒搜）${RES}"
+  echo -e "${YELLOW_COLOR}需要 Docker 环境，约占用 200MB 内存${RES}"
+  read -p "安装 Meilisearch? [y/N]: " install_meili
+  if [[ "${install_meili:-N}" =~ ^[Yy]$ ]]; then
+    INSTALL_MEILISEARCH
+  fi
+}
+
+INSTALL_MEILISEARCH() {
+  echo -e "\r\n${GREEN_COLOR}开始安装 Meilisearch...${RES}"
+
+  # 检查 Docker
+  if ! command -v docker >/dev/null 2>&1; then
+    echo -e "${YELLOW_COLOR}未检测到 Docker，正在安装...${RES}"
+    if ! curl -fsSL https://get.docker.com | sh; then
+      echo -e "${RED_COLOR}Docker 安装失败，请手动安装后重试${RES}"
+      return 1
+    fi
+    systemctl enable --now docker >/dev/null 2>&1
+  fi
+
+  # 生成随机 master key
+  MEILI_KEY=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+
+  # 创建数据目录
+  mkdir -p /opt/meilisearch/data
+
+  # 停止并删除旧容器（如果存在）
+  docker rm -f meilisearch >/dev/null 2>&1
+
+  # 启动 Meilisearch 容器
+  if docker run -d \
+    --name meilisearch \
+    --restart always \
+    -p 127.0.0.1:7700:7700 \
+    -v /opt/meilisearch/data:/meili_data \
+    -e MEILI_MASTER_KEY="$MEILI_KEY" \
+    getmeili/meilisearch:latest; then
+
+    # 保存 key 到文件
+    echo "MEILI_MASTER_KEY=$MEILI_KEY" > /opt/meilisearch/key.txt
+    chmod 600 /opt/meilisearch/key.txt
+
+    echo -e "${GREEN_COLOR}Meilisearch 安装成功！${RES}"
+    echo -e "${YELLOW_COLOR}请在 Alist 后台 → 设置 → 索引 中配置：${RES}"
+    echo -e "  SearchIndex:       meilisearch"
+    echo -e "  Meilisearch Host:  http://localhost:7700"
+    echo -e "  Meilisearch Key:   ${GREEN_COLOR}$MEILI_KEY${RES}"
+    echo -e "  （Key 已保存到 /opt/meilisearch/key.txt）"
+    MEILI_INSTALLED=true
+  else
+    echo -e "${RED_COLOR}Meilisearch 启动失败${RES}"
+    return 1
+  fi
 }
 
 SUCCESS() {
@@ -419,6 +475,20 @@ SUCCESS() {
     print_line "初始密码：$ADMIN_PASS"
   fi
   echo -e "└────────────────────────────────────────────────────┘"
+
+  # 如果安装了 Meilisearch，显示配置信息
+  if [ "$MEILI_INSTALLED" = "true" ]; then
+    MEILI_KEY=$(grep MEILI_MASTER_KEY /opt/meilisearch/key.txt | cut -d'=' -f2)
+    echo -e "┌────────────────────────────────────────────────────┐"
+    print_line "Meilisearch 已安装！"
+    print_line ""
+    print_line "请在 Alist 后台 → 设置 → 索引 中配置："
+    print_line "  SearchIndex:      meilisearch"
+    print_line "  Host: http://localhost:7700"
+    print_line "  Key:  $MEILI_KEY"
+    print_line "  （Key 已保存到 /opt/meilisearch/key.txt）"
+    echo -e "└────────────────────────────────────────────────────┘"
+  fi
   
   # 安装命令行工具
   if ! INSTALL_CLI; then
