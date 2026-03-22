@@ -722,6 +722,19 @@ UNINSTALL() {
             fi
             
             echo -e "${GREEN_COLOR}Alist 已完全卸载${RES}"
+
+            # 询问是否同时删除 Meilisearch
+            if command -v docker >/dev/null 2>&1 && docker ps -a --format '{{.Names}}' | grep -q '^meilisearch$'; then
+              echo -e "\r\n${YELLOW_COLOR}检测到 Meilisearch 容器仍在运行。${RES}"
+              read -p "是否同时删除 Meilisearch 容器和数据？[y/N]: " del_meili
+              if [[ "${del_meili:-N}" =~ ^[Yy]$ ]]; then
+                docker rm -f meilisearch >/dev/null 2>&1
+                rm -rf /opt/meilisearch
+                echo -e "${GREEN_COLOR}Meilisearch 已删除${RES}"
+              else
+                echo -e "${YELLOW_COLOR}已保留 Meilisearch，重新安装 Alist 后可继续使用${RES}"
+              fi
+            fi
             ;;
         *)
             echo -e "${GREEN_COLOR}已取消卸载${RES}"
