@@ -23,21 +23,33 @@ import (
 var baiduHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
 // getFsIDByPath 优先从搜索索引查 fs_id，找不到再降级调百度 API
-func getFsIDByPath(accessToken, filePath string) (int64, error) {
+// filePath: 百度网盘内路径（已去掉挂载前缀），fullPath: alist 完整路径（含挂载前缀）
+func getFsIDByPath(accessToken, filePath string, fullPath ...string) (int64, error) {
 	dir := path.Dir(filePath)
 	name := path.Base(filePath)
 
-	// 1. 先查当前搜索引擎索引（meilisearch/database/bleve）
+	// 1. 先用完整路径（含挂载前缀）查索引，适配导入时带挂载前缀的情况
+	if len(fullPath) > 0 && fullPath[0] != "" {
+		fullDir := path.Dir(fullPath[0])
+		if fsID, err := search.GetFsIDByPath(context.Background(), fullDir, name); err == nil && fsID > 0 {
+			return fsID, nil
+		}
+		if fsID, err := db.GetFsIDByPath(fullDir, name); err == nil && fsID > 0 {
+			return fsID, nil
+		}
+	}
+
+	// 2. 再用 baiduPath（去掉挂载前缀）查索引
 	if fsID, err := search.GetFsIDByPath(context.Background(), dir, name); err == nil && fsID > 0 {
 		return fsID, nil
 	}
 
-	// 2. 再查本地 SQLite（database 模式备用）
+	// 3. 再查本地 SQLite（database 模式备用）
 	if fsID, err := db.GetFsIDByPath(dir, name); err == nil && fsID > 0 {
 		return fsID, nil
 	}
 
-	// 3. 降级：调百度 API
+	// 4. 降级：调百度 API
 	params := neturl.Values{}
 	params.Set("method", "search")
 	params.Set("access_token", accessToken)
@@ -189,8 +201,8 @@ func BaiduFileTransfer(c *gin.Context) {
 		return
 	}
 
-	// 查询 fs_id
-	fsID, err := getFsIDByPath(accessToken, baiduPath)
+	// 查询 fs_id（传入完整路径和 baiduPath，优先用完整路径匹配索引）
+	fsID, err := getFsIDByPath(accessToken, baiduPath, req.Path)
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("查询fs_id失败: %v", err), 400)
 		return
@@ -261,7 +273,7 @@ func BaiduFileShare(c *gin.Context) {
 		return
 	}
 
-	fsID, err := getFsIDByPath(accessToken, baiduPath)
+	fsID, err := getFsIDByPath(accessToken, baiduPath, req.Path)
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("查询fs_id失败: %v", err), 400)
 		return

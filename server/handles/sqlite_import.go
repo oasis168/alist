@@ -52,6 +52,9 @@ func ImportSQLiteIndex(c *gin.Context) {
 	go func() {
 		if err := search.ImportFromSQLite(context.Background(), tmpPath, mountPrefix); err != nil {
 			log.Errorf("[sqlite_import] import failed: %v", err)
+			search.WriteProgress(&model.IndexProgress{
+				Error: err.Error(),
+			})
 		}
 	}()
 
@@ -96,7 +99,7 @@ func ListServerDbFiles(c *gin.Context) {
 func ImportServerDbFile(c *gin.Context) {
 	var req struct {
 		FilePath    string `json:"file_path" binding:"required"`
-		MountPrefix string `json:"mount_prefix" binding:"required"`
+		MountPrefix string `json:"mount_prefix"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.ErrorResp(c, err, 400)
@@ -108,7 +111,11 @@ func ImportServerDbFile(c *gin.Context) {
 		return
 	}
 	go func() {
-		if err := search.ImportFromSQLite(context.Background(), req.FilePath, req.MountPrefix); err != nil {
+		mountPfx := req.MountPrefix
+		if mountPfx == "" {
+			mountPfx = "/"
+		}
+		if err := search.ImportFromSQLite(context.Background(), req.FilePath, mountPfx); err != nil {
 			search.WriteProgress(&model.IndexProgress{
 				Error: err.Error(),
 			})
