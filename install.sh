@@ -483,16 +483,22 @@ SUCCESS() {
   fi
   echo -e "└────────────────────────────────────────────────────┘"
 
-  # 如果安装了 Meilisearch，显示配置信息
+  # 如果安装了 Meilisearch，显示详细配置步骤
   if [ "$MEILI_INSTALLED" = "true" ]; then
     MEILI_KEY=$(grep MEILI_MASTER_KEY /opt/meilisearch/key.txt | cut -d'=' -f2)
     echo -e "┌────────────────────────────────────────────────────┐"
     print_line "Meilisearch 已安装！"
     print_line ""
-    print_line "请在 Alist 后台 → 设置 → 索引 中配置："
-    print_line "  SearchIndex:      meilisearch"
-    print_line "  Host: http://localhost:7700"
-    print_line "  Key:  $MEILI_KEY"
+    print_line "请按以下步骤在 Alist 后台配置："
+    print_line "  步骤一：管理 → 设置 → 索引"
+    print_line "  步骤二：先将 SearchIndex 设为 none 并保存"
+    print_line "  步骤三：等待 2 秒，填写以下参数："
+    print_line "    Host: http://localhost:7700"
+    print_line "    Key:  $MEILI_KEY"
+    print_line "    Prefix: （留空）"
+    print_line "  步骤四：SearchIndex 改为 meilisearch 并保存"
+    print_line "  步骤五：存储页面点击对应百度网盘【导入索引】"
+    print_line ""
     print_line "  （Key 已保存到 /opt/meilisearch/key.txt）"
     echo -e "└────────────────────────────────────────────────────┘"
   fi
