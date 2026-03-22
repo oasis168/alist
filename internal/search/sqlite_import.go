@@ -115,7 +115,10 @@ func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) er
 		imported += int64(len(objs))
 		offset += sqliteImportBatchSize
 		log.Infof("[sqlite_import] imported %d / %d", imported, total)
-		WriteProgress(&model.IndexProgress{ObjCount: uint64(imported), Total: uint64(total), IsDone: false})
+		// 每 50000 条或最后一批写一次进度，减少 SQLite 写锁竞争
+		if imported%50000 == 0 || int64(len(objs)) < sqliteImportBatchSize {
+			WriteProgress(&model.IndexProgress{ObjCount: uint64(imported), Total: uint64(total), IsDone: false})
+		}
 
 		if int64(len(objs)) < sqliteImportBatchSize {
 			break

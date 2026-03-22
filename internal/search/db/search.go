@@ -30,6 +30,10 @@ func (D DB) Get(ctx context.Context, parent string) ([]model.SearchNode, error) 
 	return db.GetSearchNodesByParent(parent)
 }
 
+func (D DB) GetFsIDByPath(ctx context.Context, parent, name string) (int64, error) {
+	return db.GetFsIDByPath(parent, name)
+}
+
 func (D DB) Del(ctx context.Context, path string) error {
 	return db.DeleteSearchNodesByParent(path)
 }

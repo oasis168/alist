@@ -436,10 +436,17 @@ INSTALL_MEILISEARCH() {
     chmod 600 /opt/meilisearch/key.txt
 
     echo -e "${GREEN_COLOR}Meilisearch 安装成功！${RES}"
-    echo -e "${YELLOW_COLOR}请在 Alist 后台 → 设置 → 索引 中配置：${RES}"
-    echo -e "  SearchIndex:       meilisearch"
-    echo -e "  Meilisearch Host:  http://localhost:7700"
-    echo -e "  Meilisearch Key:   ${GREEN_COLOR}$MEILI_KEY${RES}"
+    echo -e "${YELLOW_COLOR}请按以下步骤在 Alist 后台配置 Meilisearch：${RES}"
+    echo -e ""
+    echo -e "  步骤一：进入 管理 → 设置 → 索引"
+    echo -e "  步骤二：先将 SearchIndex 设为 ${GREEN_COLOR}none${RES} 并保存"
+    echo -e "  步骤三：等待 2 秒后，填写以下参数："
+    echo -e "    Meilisearch Host:  http://localhost:7700"
+    echo -e "    Meilisearch Key:   ${GREEN_COLOR}$MEILI_KEY${RES}"
+    echo -e "    Meilisearch Index Prefix: （留空）"
+    echo -e "  步骤四：将 SearchIndex 改为 ${GREEN_COLOR}meilisearch${RES} 并保存"
+    echo -e "  步骤五：在存储页面点击对应百度网盘的【导入索引】按钮"
+    echo -e ""
     echo -e "  （Key 已保存到 /opt/meilisearch/key.txt）"
     MEILI_INSTALLED=true
   else

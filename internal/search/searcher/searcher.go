@@ -22,6 +22,8 @@ type Searcher interface {
 	BatchIndex(ctx context.Context, nodes []model.SearchNode) error
 	// Get by parent
 	Get(ctx context.Context, parent string) ([]model.SearchNode, error)
+	// GetFsIDByPath returns fs_id by parent dir and filename
+	GetFsIDByPath(ctx context.Context, parent, name string) (int64, error)
 	// Del with prefix
 	Del(ctx context.Context, prefix string) error
 	// Release resource

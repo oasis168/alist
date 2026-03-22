@@ -1,6 +1,7 @@
 package handles
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,24 +15,29 @@ import (
 	"github.com/alist-org/alist/v3/internal/conf"
 	"github.com/alist-org/alist/v3/internal/db"
 	"github.com/alist-org/alist/v3/internal/op"
+	"github.com/alist-org/alist/v3/internal/search"
 	"github.com/alist-org/alist/v3/server/common"
 	"github.com/gin-gonic/gin"
 )
 
 var baiduHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
-// getFsIDByPath 优先从本地搜索索引查 fs_id，找不到再降级调百度 API
+// getFsIDByPath 优先从搜索索引查 fs_id，找不到再降级调百度 API
 func getFsIDByPath(accessToken, filePath string) (int64, error) {
 	dir := path.Dir(filePath)
 	name := path.Base(filePath)
 
-	// 先查本地索引
-	fsID, err := db.GetFsIDByPath(dir, name)
-	if err == nil && fsID > 0 {
+	// 1. 先查当前搜索引擎索引（meilisearch/database/bleve）
+	if fsID, err := search.GetFsIDByPath(context.Background(), dir, name); err == nil && fsID > 0 {
 		return fsID, nil
 	}
 
-	// 降级：调百度 API
+	// 2. 再查本地 SQLite（database 模式备用）
+	if fsID, err := db.GetFsIDByPath(dir, name); err == nil && fsID > 0 {
+		return fsID, nil
+	}
+
+	// 3. 降级：调百度 API
 	params := neturl.Values{}
 	params.Set("method", "search")
 	params.Set("access_token", accessToken)

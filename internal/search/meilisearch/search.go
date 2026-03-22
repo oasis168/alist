@@ -44,11 +44,16 @@ func (m *Meilisearch) Search(ctx context.Context, req model.SearchReq) ([]model.
 	}
 	nodes, err := utils.SliceConvert(search.Hits, func(src any) (model.SearchNode, error) {
 		srcMap := src.(map[string]any)
+		var fsID int64
+		if v, ok := srcMap["fs_id"]; ok && v != nil {
+			fsID = int64(v.(float64))
+		}
 		return model.SearchNode{
 			Parent: srcMap["parent"].(string),
 			Name:   srcMap["name"].(string),
 			IsDir:  srcMap["is_dir"].(bool),
 			Size:   int64(srcMap["size"].(float64)),
+			FsID:   fsID,
 		}, nil
 	})
 	if err != nil {
@@ -120,6 +125,28 @@ func (m *Meilisearch) Get(ctx context.Context, parent string) ([]model.SearchNod
 		return src.SearchNode, nil
 	})
 
+}
+
+func (m *Meilisearch) GetFsIDByPath(ctx context.Context, parent, name string) (int64, error) {
+	var result meilisearch.DocumentsResult
+	err := m.Client.Index(m.IndexUid).GetDocuments(&meilisearch.DocumentsQuery{
+		Filter: fmt.Sprintf("parent = '%s' AND name = '%s'",
+			strings.ReplaceAll(parent, "'", "\\'"),
+			strings.ReplaceAll(name, "'", "\\'"),
+		),
+		Limit: 1,
+	}, &result)
+	if err != nil {
+		return 0, err
+	}
+	if len(result.Results) == 0 {
+		return 0, fmt.Errorf("not found")
+	}
+	src := result.Results[0]
+	if v, ok := src["fs_id"]; ok && v != nil {
+		return int64(v.(float64)), nil
+	}
+	return 0, fmt.Errorf("fs_id not found")
 }
 
 func (m *Meilisearch) getParentsByPrefix(ctx context.Context, parent string) ([]string, error) {

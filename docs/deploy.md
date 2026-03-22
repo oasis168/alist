@@ -100,16 +100,25 @@ systemctl enable --now meilisearch
 
 ### 2. 在 Alist 后台配置 Meilisearch
 
-进入 `管理 → 设置 → 索引`，填写：
+> **重要：配置参数必须在选择 meilisearch 引擎之前填写，否则 host/key 不会生效。**
+
+**正确操作步骤：**
+
+1. 进入 `管理 → 设置 → 索引`
+2. 先将 **SearchIndex 设为 `none`** 并保存
+3. 等待 2 秒
+4. 填写以下参数：
 
 | 配置项 | 值 | 说明 |
 |--------|-----|------|
-| 搜索引擎 | `meilisearch` | 选择 Meilisearch |
 | Meilisearch Host | `http://localhost:7700` | Meilisearch 服务地址 |
 | Meilisearch API Key | `your_master_key_here` | 与启动时的 master key 一致 |
-| Meilisearch Index Prefix | （留空）| 可选，多实例时用于区分 |
+| Meilisearch Index Prefix | （留空）| 单实例留空即可；多个 Alist 共用同一个 Meilisearch 时才需要填，用于区分不同实例，如 `site1_` |
 
-保存后，重新导入 `.db` 文件即可。
+5. 将 **SearchIndex 改为 `meilisearch`** 并保存
+6. 在存储页面找到对应的百度网盘，点击**导入索引**按钮上传 `.db` 文件
+
+保存后等待导入完成即可使用秒搜。
 
 ### 3. docker-compose 一键部署（Alist + Meilisearch）
 

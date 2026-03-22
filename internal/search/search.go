@@ -52,6 +52,13 @@ func Search(ctx context.Context, req model.SearchReq) ([]model.SearchNode, int64
 	return instance.Search(ctx, req)
 }
 
+func GetFsIDByPath(ctx context.Context, parent, name string) (int64, error) {
+	if instance == nil {
+		return 0, errs.SearchNotAvailable
+	}
+	return instance.GetFsIDByPath(ctx, parent, name)
+}
+
 func Index(ctx context.Context, parent string, obj model.Obj) error {
 	if instance == nil {
 		return errs.SearchNotAvailable

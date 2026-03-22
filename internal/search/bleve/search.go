@@ -73,6 +73,11 @@ func (b *Bleve) Get(ctx context.Context, parent string) ([]model.SearchNode, err
 	return nil, errs.NotSupport
 }
 
+func (b *Bleve) GetFsIDByPath(ctx context.Context, parent, name string) (int64, error) {
+	// bleve 不支持精确查询，返回不支持
+	return 0, errs.NotSupport
+}
+
 func (b *Bleve) Del(ctx context.Context, prefix string) error {
 	return errs.NotSupport
 }
