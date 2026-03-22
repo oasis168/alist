@@ -798,31 +798,13 @@ INSTALL_CLI() {
         return 1
     fi
 
-    # 获取当前脚本信息（不显示调试信息）
-    SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-    SCRIPT_NAME=$(basename "$0")
-    SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_NAME"
-
-    # 验证脚本文件是否存在
-    if [ ! -f "$SCRIPT_PATH" ]; then
-        echo -e "${RED_COLOR}错误：找不到源脚本文件${RES}"
-        echo -e "路径: $SCRIPT_PATH"
+    # 从 GitHub 下载最新脚本
+    echo -e "${GREEN_COLOR}正在从 GitHub 下载最新管理脚本...${RES}"
+    mkdir -p "$(dirname "$MANAGER_PATH")"
+    if ! curl -sL https://raw.githubusercontent.com/oasis168/alist/main/install.sh -o "$MANAGER_PATH"; then
+        echo -e "${RED_COLOR}错误：下载管理脚本失败${RES}"
         return 1
     fi
-    
-    # 创建管理脚本目录
-    mkdir -p "$(dirname "$MANAGER_PATH")" || {
-        echo -e "${RED_COLOR}错误：无法创建目录 $(dirname "$MANAGER_PATH")${RES}"
-        return 1
-    }
-    
-    # 复制脚本到管理目录
-    cp "$SCRIPT_PATH" "$MANAGER_PATH" || {
-        echo -e "${RED_COLOR}错误：无法复制管理脚本${RES}"
-        echo -e "源文件：$SCRIPT_PATH"
-        echo -e "目标文件：$MANAGER_PATH"
-        return 1
-    }
     
     # 设置权限
     chmod 755 "$MANAGER_PATH" || {
