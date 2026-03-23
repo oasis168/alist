@@ -9,6 +9,7 @@ import (
 
 type Addition struct {
 	RefreshToken string `json:"refresh_token" required:"true"`
+	Cookie       string `json:"cookie" help:"optional, full web cookie for share feature (BDUSS=xxx;STOKEN=xxx;...)"`
 	BDUSS        string `json:"bduss" help:"optional, used for locate download of large files"`
 	driver.RootPath
 	OrderBy               string `json:"order_by" type:"select" options:"name,time,size" default:"name"`

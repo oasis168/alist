@@ -280,7 +280,29 @@ type BaiduFileShareReq struct {
 	Period int    `json:"period"`
 }
 
+func getBaiduStorageCookie(mountPrefix string) (string, error) {
+	storageDriver, err := op.GetStorageByMountPath(strings.TrimRight(mountPrefix, "/"))
+	if err != nil {
+		return "", fmt.Errorf("storage not found: %s: %w", mountPrefix, err)
+	}
+	b, err := json.Marshal(storageDriver.GetAddition())
+	if err != nil {
+		return "", err
+	}
+	var addition struct {
+		Cookie string `json:"cookie"`
+	}
+	if err = json.Unmarshal(b, &addition); err != nil {
+		return "", err
+	}
+	if addition.Cookie == "" {
+		return "", fmt.Errorf("存储未配置 Cookie")
+	}
+	return addition.Cookie, nil
+}
+
 // BaiduFileShare 给搜索到的百度网盘文件生成分享链接
+// 优先用挂载存储自身的 cookie 分享，支持多网盘挂载各用各的账号
 // POST /api/admin/baidu/share_file
 func BaiduFileShare(c *gin.Context) {
 	var req BaiduFileShareReq
@@ -295,23 +317,35 @@ func BaiduFileShare(c *gin.Context) {
 		req.Period = 7
 	}
 
-	_, _, baiduPath, err := resolveBaiduPathFromRequest(req.Path)
+	_, mountPrefix, baiduPath, err := resolveBaiduPathFromRequest(req.Path)
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("解析百度路径失败: %v", err), 400)
 		return
 	}
 
-	client, err := getBaiduShareClient()
-	if err != nil {
-		common.ErrorStrResp(c, err.Error(), 400)
-		return
+	// 优先用挂载存储自身的 cookie 分享（支持多网盘，各用各账号的 cookie）
+	cookie, cookieErr := getBaiduStorageCookie(mountPrefix)
+	if cookieErr == nil {
+		client := baidu.NewClient(cookie)
+		if err = client.GetBdstoken(); err == nil {
+			link, shareErr := client.CreateShareByPaths([]string{baiduPath}, req.Period, "")
+			if shareErr == nil {
+				common.SuccessResp(c, gin.H{"link": link, "path": baiduPath})
+				return
+			}
+		}
 	}
 
-	link, err := client.CreateShareByPaths([]string{baiduPath}, req.Period, "")
+	// 存储没有配置 cookie，降级用全局 baidu_transfer_cookie
+	globalClient, globalErr := getBaiduShareClient()
+	if globalErr != nil {
+		common.ErrorStrResp(c, fmt.Sprintf("分享失败: 存储未配置 Cookie(%v)，且未配置全局 baidu_transfer_cookie(%v)", cookieErr, globalErr), 400)
+		return
+	}
+	link, err := globalClient.CreateShareByPaths([]string{baiduPath}, req.Period, "")
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("分享失败: %v", err), 400)
 		return
 	}
-
 	common.SuccessResp(c, gin.H{"link": link, "path": baiduPath})
 }
