@@ -247,10 +247,10 @@ func (d *BaiduNetdisk) generateLocateRand(ts int64, devuid string) string {
 
 func (d *BaiduNetdisk) linkLocate(file model.Obj, _ model.LinkArgs) (*model.Link, error) {
 	if d.BDUSS == "" {
-		return nil, fmt.Errorf("bduss is required for locate download")
+		return nil, fmt.Errorf("locate 模式需要填写 BDUSS")
 	}
 	if d.uid == 0 {
-		return nil, fmt.Errorf("uid is empty for locate download")
+		return nil, fmt.Errorf("uid 未初始化，请重新保存存储配置")
 	}
 	ts := time.Now().Unix()
 	devuid := d.generateLocateDevUID()
@@ -262,13 +262,16 @@ func (d *BaiduNetdisk) linkLocate(file model.Obj, _ model.LinkArgs) (*model.Link
 		req.SetHeader("User-Agent", "netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;")
 	}, &resp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("locate download request: %w", err)
 	}
 	if resp.Errno != 0 {
 		return nil, fmt.Errorf("locate download errno=%d: %s", resp.Errno, resp.Errmsg)
 	}
+	log.Debugf("[baidu_netdisk] locate download urls count=%d path=%s", len(resp.Urls), file.GetPath())
+	// 优先选非加密、非nb.cache的直链
 	for _, item := range resp.Urls {
 		if item.Encrypt == 0 && item.URL != "" && !strings.Contains(item.URL, "nb.cache") {
+			log.Debugf("[baidu_netdisk] locate download selected url=%s", item.URL)
 			return &model.Link{
 				URL: item.URL,
 				Header: http.Header{
@@ -278,8 +281,10 @@ func (d *BaiduNetdisk) linkLocate(file model.Obj, _ model.LinkArgs) (*model.Link
 			}, nil
 		}
 	}
+	// 降级：接受nb.cache链接
 	for _, item := range resp.Urls {
 		if item.Encrypt == 0 && item.URL != "" {
+			log.Debugf("[baidu_netdisk] locate download fallback url=%s", item.URL)
 			return &model.Link{
 				URL: item.URL,
 				Header: http.Header{
@@ -289,7 +294,20 @@ func (d *BaiduNetdisk) linkLocate(file model.Obj, _ model.LinkArgs) (*model.Link
 			}, nil
 		}
 	}
-	return nil, fmt.Errorf("no usable locate download url")
+	// 最后降级：接受所有URL（包括加密链接）
+	for _, item := range resp.Urls {
+		if item.URL != "" {
+			log.Warnf("[baidu_netdisk] locate download using encrypted url=%s", item.URL)
+			return &model.Link{
+				URL: item.URL,
+				Header: http.Header{
+					"Cookie":     []string{fmt.Sprintf("BDUSS=%s", d.BDUSS)},
+					"User-Agent": []string{"netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;"},
+				},
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("no usable locate download url (total urls=%d)", len(resp.Urls))
 }
 
 func (d *BaiduNetdisk) manage(opera string, filelist any) ([]byte, error) {

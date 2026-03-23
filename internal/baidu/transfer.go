@@ -377,7 +377,13 @@ func (c *Client) CreateShareByPaths(paths []string, expiry int, password string)
 	if err != nil {
 		return "", fmt.Errorf("marshal path_list: %w", err)
 	}
-	body, err := c.post(baiduBaseURL+"/share/pset", nil, map[string]string{
+	body, err := c.post(baiduBaseURL+"/share/pset", map[string]string{
+		"channel":    "chunlei",
+		"bdstoken":   c.bdstoken,
+		"clienttype": "0",
+		"app_id":     "250528",
+		"web":        "1",
+	}, map[string]string{
 		"path_list":    string(pathList),
 		"period":       fmt.Sprintf("%d", expiry),
 		"pwd":          password,
