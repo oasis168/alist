@@ -367,3 +367,43 @@ func (c *Client) CreateShare(fsID int64, expiry int, password string) (string, e
 	}
 	return resp.Link, nil
 }
+
+// CreateShareByPaths 使用网页端 path_list 直接创建分享链接
+func (c *Client) CreateShareByPaths(paths []string, expiry int, password string) (string, error) {
+	if len(paths) == 0 {
+		return "", fmt.Errorf("paths is empty")
+	}
+	pathList, err := json.Marshal(paths)
+	if err != nil {
+		return "", fmt.Errorf("marshal path_list: %w", err)
+	}
+	body, err := c.post(baiduBaseURL+"/share/pset", nil, map[string]string{
+		"path_list":    string(pathList),
+		"period":       fmt.Sprintf("%d", expiry),
+		"pwd":          password,
+		"schannel":     "4",
+		"channel_list": "[]",
+		"share_type":   "9",
+	})
+	if err != nil {
+		return "", fmt.Errorf("create path share: %w", err)
+	}
+	var resp struct {
+		Errno    int    `json:"errno"`
+		Link     string `json:"link"`
+		Shorturl string `json:"shorturl"`
+	}
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return "", fmt.Errorf("parse path share resp: %w", err)
+	}
+	if resp.Errno != 0 {
+		return "", fmt.Errorf("create path share errno=%d", resp.Errno)
+	}
+	if resp.Link != "" {
+		return resp.Link, nil
+	}
+	if resp.Shorturl != "" {
+		return resp.Shorturl, nil
+	}
+	return "", fmt.Errorf("create path share: empty link")
+}

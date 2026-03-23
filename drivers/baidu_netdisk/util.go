@@ -1,10 +1,13 @@
 package baidu_netdisk
 
 import (
+	"crypto/md5"
+	"crypto/sha1"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -228,6 +231,65 @@ func (d *BaiduNetdisk) linkCrackVideo(file model.Obj, _ model.LinkArgs) (*model.
 			"User-Agent": []string{d.CustomCrackUA},
 		},
 	}, nil
+}
+
+func (d *BaiduNetdisk) generateLocateDevUID() string {
+	sum := md5.Sum([]byte(d.BDUSS))
+	return strings.ToUpper(hex.EncodeToString(sum[:])) + "|0"
+}
+
+func (d *BaiduNetdisk) generateLocateRand(ts int64, devuid string) string {
+	bdussSha1 := sha1.Sum([]byte(d.BDUSS))
+	seed := hex.EncodeToString(bdussSha1[:]) + strconv.FormatInt(d.uid, 10) + "ebrcUYiuxaZv2XGu7KIYKxUrqfnOfpDF" + strconv.FormatInt(ts, 10) + devuid
+	randSha1 := sha1.Sum([]byte(seed))
+	return hex.EncodeToString(randSha1[:])
+}
+
+func (d *BaiduNetdisk) linkLocate(file model.Obj, _ model.LinkArgs) (*model.Link, error) {
+	if d.BDUSS == "" {
+		return nil, fmt.Errorf("bduss is required for locate download")
+	}
+	if d.uid == 0 {
+		return nil, fmt.Errorf("uid is empty for locate download")
+	}
+	ts := time.Now().Unix()
+	devuid := d.generateLocateDevUID()
+	rand := d.generateLocateRand(ts, devuid)
+	apiURL := fmt.Sprintf("https://pcs.baidu.com/rest/2.0/pcs/file?ant=1&check_blue=1&es=1&esl=1&app_id=250528&method=locatedownload&path=%s&ver=4.0&clienttype=17&channel=0&apn_id=1_0&freeisp=0&queryfree=0&use=0&time=%d&rand=%s&devuid=%s&cuid=%s", url.QueryEscape(file.GetPath()), ts, rand, url.QueryEscape(devuid), url.QueryEscape(devuid))
+	var resp LocateDownloadResp
+	_, err := d.request(apiURL, http.MethodPost, func(req *resty.Request) {
+		req.SetHeader("Cookie", fmt.Sprintf("BDUSS=%s", d.BDUSS))
+		req.SetHeader("User-Agent", "netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;")
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Errno != 0 {
+		return nil, fmt.Errorf("locate download errno=%d: %s", resp.Errno, resp.Errmsg)
+	}
+	for _, item := range resp.Urls {
+		if item.Encrypt == 0 && item.URL != "" && !strings.Contains(item.URL, "nb.cache") {
+			return &model.Link{
+				URL: item.URL,
+				Header: http.Header{
+					"Cookie":     []string{fmt.Sprintf("BDUSS=%s", d.BDUSS)},
+					"User-Agent": []string{"netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;"},
+				},
+			}, nil
+		}
+	}
+	for _, item := range resp.Urls {
+		if item.Encrypt == 0 && item.URL != "" {
+			return &model.Link{
+				URL: item.URL,
+				Header: http.Header{
+					"Cookie":     []string{fmt.Sprintf("BDUSS=%s", d.BDUSS)},
+					"User-Agent": []string{"netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;"},
+				},
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("no usable locate download url")
 }
 
 func (d *BaiduNetdisk) manage(opera string, filelist any) ([]byte, error) {

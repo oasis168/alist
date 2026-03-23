@@ -181,6 +181,15 @@ type DownloadResp2 struct {
 	RequestID int64 `json:"request_id"`
 }
 
+type LocateDownloadResp struct {
+	Errno  int    `json:"errno"`
+	Errmsg string `json:"errmsg"`
+	Urls   []struct {
+		URL     string `json:"url"`
+		Encrypt int    `json:"encrypt"`
+	} `json:"urls"`
+}
+
 type PrecreateResp struct {
 	Errno      int   `json:"errno"`
 	RequestId  int64 `json:"request_id"`

@@ -14,6 +14,7 @@ import (
 	"github.com/alist-org/alist/v3/internal/baidu"
 	"github.com/alist-org/alist/v3/internal/conf"
 	"github.com/alist-org/alist/v3/internal/db"
+	internaldriver "github.com/alist-org/alist/v3/internal/driver"
 	"github.com/alist-org/alist/v3/internal/op"
 	"github.com/alist-org/alist/v3/internal/search"
 	"github.com/alist-org/alist/v3/server/common"
@@ -21,6 +22,38 @@ import (
 )
 
 var baiduHTTPClient = &http.Client{Timeout: 15 * time.Second}
+
+func resolveBaiduPathFromRequest(rawPath string) (internaldriver.Driver, string, string, error) {
+	rawPath = strings.TrimSpace(rawPath)
+	if rawPath == "" {
+		return nil, "", "", fmt.Errorf("path is empty")
+	}
+	storageDriver, actualPath, err := op.GetStorageAndActualPath(rawPath)
+	if err != nil {
+		return nil, "", "", err
+	}
+	mountPath := storageDriver.GetStorage().MountPath
+	baiduPath := path.Clean(actualPath)
+	if baiduPath == "." || baiduPath == "" {
+		baiduPath = "/"
+	}
+	if !strings.HasPrefix(baiduPath, "/") {
+		baiduPath = "/" + baiduPath
+	}
+	return storageDriver, mountPath, baiduPath, nil
+}
+
+func getBaiduShareClient() (*baidu.Client, error) {
+	cookieItem, err := op.GetSettingItemByKey(conf.BaiduTransferCookie)
+	if err != nil || cookieItem.Value == "" {
+		return nil, fmt.Errorf("请先在设置 > Baidu 中配置 baidu_transfer_cookie")
+	}
+	client := baidu.NewClient(cookieItem.Value)
+	if err := client.GetBdstoken(); err != nil {
+		return nil, fmt.Errorf("获取bdstoken失败: %w", err)
+	}
+	return client, nil
+}
 
 // getFsIDByPath 优先从搜索索引查 fs_id，找不到再降级调百度 API
 // filePath: 百度网盘内路径（已去掉挂载前缀），fullPath: alist 完整路径（含挂载前缀）
@@ -85,11 +118,11 @@ func getFsIDByPath(accessToken, filePath string, fullPath ...string) (int64, err
 		return 0, fmt.Errorf("file not found: %s", filePath)
 	}
 	for _, f := range result.List {
-		if f.Path == filePath || f.Name == name {
+		if f.Path == filePath {
 			return f.FsID, nil
 		}
 	}
-	return result.List[0].FsID, nil
+	return 0, fmt.Errorf("file not found: %s", filePath)
 }
 
 // getBaiduAccessToken 从挂载存储里提取 access_token
@@ -184,15 +217,11 @@ func BaiduFileTransfer(c *gin.Context) {
 		}
 	}
 
-	// 解析挂载路径和百度网盘内路径
-	trimmed := strings.TrimPrefix(req.Path, "/")
-	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) < 2 {
-		common.ErrorStrResp(c, "path 格式错误，需要 /挂载路径/文件路径", 400)
+	storageDriver, mountPrefix, baiduPath, err := resolveBaiduPathFromRequest(req.Path)
+	if err != nil {
+		common.ErrorStrResp(c, fmt.Sprintf("解析百度路径失败: %v", err), 400)
 		return
 	}
-	mountPrefix := "/" + parts[0]
-	baiduPath := "/" + parts[1]
 
 	// 获取源账号 access_token
 	accessToken, err := getBaiduAccessToken(mountPrefix)
@@ -211,8 +240,16 @@ func BaiduFileTransfer(c *gin.Context) {
 	// 源账号生成临时分享链接（1天，无需提取码）
 	shareLink, err := shareByAccessToken(accessToken, fsID, 1)
 	if err != nil {
-		common.ErrorStrResp(c, fmt.Sprintf("生成临时分享链接失败: %v", err), 400)
-		return
+		if strings.Contains(storageDriver.GetStorage().Driver, "Baidu") {
+			shareClient, clientErr := getBaiduShareClient()
+			if clientErr == nil {
+				shareLink, err = shareClient.CreateShareByPaths([]string{baiduPath}, 1, "")
+			}
+		}
+		if err != nil {
+			common.ErrorStrResp(c, fmt.Sprintf("生成临时分享链接失败: %v", err), 400)
+			return
+		}
 	}
 
 	// 目标账号执行转存
@@ -258,32 +295,23 @@ func BaiduFileShare(c *gin.Context) {
 		req.Period = 7
 	}
 
-	trimmed := strings.TrimPrefix(req.Path, "/")
-	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) < 2 {
-		common.ErrorStrResp(c, "path 格式错误，需要 /挂载路径/文件路径", 400)
-		return
-	}
-	mountPrefix := "/" + parts[0]
-	baiduPath := "/" + parts[1]
-
-	accessToken, err := getBaiduAccessToken(mountPrefix)
+	_, _, baiduPath, err := resolveBaiduPathFromRequest(req.Path)
 	if err != nil {
-		common.ErrorStrResp(c, fmt.Sprintf("获取access_token失败: %v", err), 400)
+		common.ErrorStrResp(c, fmt.Sprintf("解析百度路径失败: %v", err), 400)
 		return
 	}
 
-	fsID, err := getFsIDByPath(accessToken, baiduPath, req.Path)
+	client, err := getBaiduShareClient()
 	if err != nil {
-		common.ErrorStrResp(c, fmt.Sprintf("查询fs_id失败: %v", err), 400)
+		common.ErrorStrResp(c, err.Error(), 400)
 		return
 	}
 
-	link, err := shareByAccessToken(accessToken, fsID, req.Period)
+	link, err := client.CreateShareByPaths([]string{baiduPath}, req.Period, "")
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("分享失败: %v", err), 400)
 		return
 	}
 
-	common.SuccessResp(c, gin.H{"link": link})
+	common.SuccessResp(c, gin.H{"link": link, "path": baiduPath})
 }

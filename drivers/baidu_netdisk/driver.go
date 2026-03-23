@@ -34,6 +34,7 @@ type BaiduNetdisk struct {
 
 	uploadThread int
 	vipType      int // 会员类型，0普通用户(4G/4M)、1普通会员(10G/16M)、2超级会员(20G/32M)
+	uid          int64
 
 	upClient            *resty.Client // 上传文件使用的http客户端
 	uploadUrlG          singleflight.Group[string]
@@ -77,6 +78,7 @@ func (d *BaiduNetdisk) Init(ctx context.Context) error {
 		return err
 	}
 	d.vipType = utils.Json.Get(res, "vip_type").ToInt()
+	d.uid = utils.Json.Get(res, "uk").ToInt64()
 	return nil
 }
 
@@ -99,6 +101,8 @@ func (d *BaiduNetdisk) Link(ctx context.Context, file model.Obj, args model.Link
 		return d.linkCrack(file, args)
 	} else if d.DownloadAPI == "crack_video" {
 		return d.linkCrackVideo(file, args)
+	} else if d.DownloadAPI == "locate" {
+		return d.linkLocate(file, args)
 	}
 	return d.linkOfficial(file, args)
 }
