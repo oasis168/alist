@@ -68,8 +68,14 @@ func (m *Meilisearch) Index(ctx context.Context, node model.SearchNode) error {
 
 const batchIndexSize = 1000
 
+func sanitizeString(s string) string {
+	return strings.ToValidUTF8(s, "")
+}
+
 func (m *Meilisearch) BatchIndex(ctx context.Context, nodes []model.SearchNode) error {
 	documents, _ := utils.SliceConvert(nodes, func(src model.SearchNode) (*searchDocument, error) {
+		src.Name = sanitizeString(src.Name)
+		src.Parent = sanitizeString(src.Parent)
 		return &searchDocument{
 			ID:         uuid.NewString(),
 			SearchNode: src,
