@@ -217,43 +217,22 @@ func BaiduFileTransfer(c *gin.Context) {
 		}
 	}
 
-	storageDriver, mountPrefix, baiduPath, err := resolveBaiduPathFromRequest(req.Path)
+	_, mountPrefix, baiduPath, err := resolveBaiduPathFromRequest(req.Path)
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("解析百度路径失败: %v", err), 400)
 		return
 	}
 
-	// 获取源账号 access_token
-	accessToken, err := getBaiduAccessToken(mountPrefix)
-	if err != nil {
-		common.ErrorStrResp(c, fmt.Sprintf("获取access_token失败: %v", err), 400)
-		return
+	// 源账号生成临时分享链接（1天，带随机提取码），直接用 path-based 接口，无需查询 fs_id
+	shareCookie, scErr := getBaiduStorageCookie(mountPrefix)
+	if scErr != nil {
+		shareCookie = cookieItem.Value // 存储无 cookie 时降级用目标账号 cookie
 	}
-
-	// 查询 fs_id（传入完整路径和 baiduPath，优先用完整路径匹配索引）
-	fsID, err := getFsIDByPath(accessToken, baiduPath, req.Path)
+	shareClient := baidu.NewClient(shareCookie)
+	shareLink, sharePwd, err := shareClient.CreateShareByPaths([]string{baiduPath}, 1, "")
 	if err != nil {
-		common.ErrorStrResp(c, fmt.Sprintf("查询fs_id失败: %v", err), 400)
+		common.ErrorStrResp(c, fmt.Sprintf("生成临时分享链接失败: %v", err), 400)
 		return
-	}
-
-	// 源账号生成临时分享链接（1天，无需提取码）
-	shareLink, err := shareByAccessToken(accessToken, fsID, 1)
-	if err != nil {
-		if strings.Contains(storageDriver.GetStorage().Driver, "Baidu") {
-			// /share/pset 只需要 BDUSS，不需要 bdstoken
-			// 优先用存储自身的 cookie，降级用全局 cookie
-			shareCookie, scErr := getBaiduStorageCookie(mountPrefix)
-			if scErr != nil {
-				shareCookie = cookieItem.Value // 用目标账号 cookie 作降级
-			}
-			shareClient := baidu.NewClient(shareCookie)
-			shareLink, _, err = shareClient.CreateShareByPaths([]string{baiduPath}, 1, "")
-		}
-		if err != nil {
-			common.ErrorStrResp(c, fmt.Sprintf("生成临时分享链接失败: %v", err), 400)
-			return
-		}
 	}
 
 	// 目标账号执行转存
@@ -265,6 +244,15 @@ func BaiduFileTransfer(c *gin.Context) {
 	_ = targetClient.CreateDir(destDir)
 
 	shareURL, _ := baidu.NormalizeLink(shareLink)
+	// 分享链接带密码时，需先验证提取码获取 bdclnd，再访问分享页面
+	if sharePwd != "" {
+		bdclnd, verifyErr := targetClient.VerifyPassCode(shareURL, sharePwd)
+		if verifyErr != nil {
+			common.ErrorStrResp(c, fmt.Sprintf("验证提取码失败: %v", verifyErr), 400)
+			return
+		}
+		targetClient.UpdateCookieBDCLND(bdclnd)
+	}
 	params, err := targetClient.GetTransferParams(shareURL)
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("解析分享链接失败: %v", err), 400)
