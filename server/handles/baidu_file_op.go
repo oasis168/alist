@@ -248,7 +248,7 @@ func BaiduFileTransfer(c *gin.Context) {
 				shareCookie = cookieItem.Value // 用目标账号 cookie 作降级
 			}
 			shareClient := baidu.NewClient(shareCookie)
-			shareLink, err = shareClient.CreateShareByPaths([]string{baiduPath}, 1, "")
+			shareLink, _, err = shareClient.CreateShareByPaths([]string{baiduPath}, 1, "")
 		}
 		if err != nil {
 			common.ErrorStrResp(c, fmt.Sprintf("生成临时分享链接失败: %v", err), 400)
@@ -332,12 +332,12 @@ func BaiduFileShare(c *gin.Context) {
 	cookie, cookieErr := getBaiduStorageCookie(mountPrefix)
 	if cookieErr == nil {
 		client := baidu.NewClient(cookie)
-		link, shareErr := client.CreateShareByPaths([]string{baiduPath}, req.Period, "")
+		link, pwd, shareErr := client.CreateShareByPaths([]string{baiduPath}, req.Period, "")
 		if shareErr == nil {
-			common.SuccessResp(c, gin.H{"link": link, "path": baiduPath})
+			common.SuccessResp(c, gin.H{"link": link, "pwd": pwd, "path": baiduPath})
 			return
 		}
-		cookieErr = shareErr // 记录错误，给降级路径用
+		cookieErr = shareErr
 	}
 
 	// 存储没有配置 cookie 或分享失败，降级用全局 baidu_transfer_cookie
@@ -347,10 +347,10 @@ func BaiduFileShare(c *gin.Context) {
 		return
 	}
 	globalClient := baidu.NewClient(globalCookieItem.Value)
-	link, err := globalClient.CreateShareByPaths([]string{baiduPath}, req.Period, "")
+	link, pwd, err := globalClient.CreateShareByPaths([]string{baiduPath}, req.Period, "")
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("分享失败: %v", err), 400)
 		return
 	}
-	common.SuccessResp(c, gin.H{"link": link, "path": baiduPath})
+	common.SuccessResp(c, gin.H{"link": link, "pwd": pwd, "path": baiduPath})
 }
