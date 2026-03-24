@@ -66,31 +66,27 @@ func (m *Meilisearch) Index(ctx context.Context, node model.SearchNode) error {
 	return m.BatchIndex(ctx, []model.SearchNode{node})
 }
 
+const batchIndexSize = 1000
+
 func (m *Meilisearch) BatchIndex(ctx context.Context, nodes []model.SearchNode) error {
 	documents, _ := utils.SliceConvert(nodes, func(src model.SearchNode) (*searchDocument, error) {
-
 		return &searchDocument{
 			ID:         uuid.NewString(),
 			SearchNode: src,
 		}, nil
 	})
 
-	_, err := m.Client.Index(m.IndexUid).AddDocuments(documents)
-	if err != nil {
-		return err
+	// 分批发送，避免单次请求体过大导致 Meilisearch 400 malformed_payload
+	for i := 0; i < len(documents); i += batchIndexSize {
+		end := i + batchIndexSize
+		if end > len(documents) {
+			end = len(documents)
+		}
+		_, err := m.Client.Index(m.IndexUid).AddDocuments(documents[i:end])
+		if err != nil {
+			return err
+		}
 	}
-
-	//// Wait for the task to complete and check
-	//forTask, err := m.Client.WaitForTask(task.TaskUID, meilisearch.WaitParams{
-	//	Context:  ctx,
-	//	Interval: time.Millisecond * 50,
-	//})
-	//if err != nil {
-	//	return err
-	//}
-	//if forTask.Status != meilisearch.TaskStatusSucceeded {
-	//	return fmt.Errorf("BatchIndex failed, task status is %s", forTask.Status)
-	//}
 	return nil
 }
 
