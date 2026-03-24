@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -379,11 +380,25 @@ func extractBDUSS(cookie string) string {
 	return ""
 }
 
+// generateRandomPwd 生成随机4位提取码（百度要求密码不能为空，必须4位）
+func generateRandomPwd() string {
+	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, 4)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
+}
+
 // CreateShareByPaths 使用网页端 /share/pset 直接创建分享链接
 // 注意：此接口不需要 URL query 参数，只需要 BDUSS cookie 和正确的 Referer
 func (c *Client) CreateShareByPaths(paths []string, expiry int, password string) (string, error) {
 	if len(paths) == 0 {
 		return "", fmt.Errorf("paths is empty")
+	}
+	// 百度要求密码必须4位，空密码会报 pwd length param error
+	if password == "" {
+		password = generateRandomPwd()
 	}
 	pathList, err := json.Marshal(paths)
 	if err != nil {

@@ -260,8 +260,9 @@ func (d *BaiduNetdisk) linkLocate(file model.Obj, _ model.LinkArgs) (*model.Link
 
 	// 构造 URL —— 注意：不能使用 d.request()，因为它会自动添加 access_token 参数，
 	// 与 BDUSS cookie 认证冲突，导致签名错误
+	// 注意：devuid 和 cuid 不能 URL 编码（Rust 参考实现不编码，百度服务端要求原始值含 "|"）
 	apiURL := fmt.Sprintf("https://pcs.baidu.com/rest/2.0/pcs/file?ant=1&check_blue=1&es=1&esl=1&app_id=250528&method=locatedownload&path=%s&ver=4.0&clienttype=17&channel=0&apn_id=1_0&freeisp=0&queryfree=0&use=0&time=%d&rand=%s&devuid=%s&cuid=%s",
-		url.QueryEscape(file.GetPath()), ts, rand, url.QueryEscape(devuid), url.QueryEscape(devuid))
+		url.QueryEscape(file.GetPath()), ts, rand, devuid, devuid)
 
 	// 使用原生 http 请求，避免 d.request() 添加 access_token
 	req, err := http.NewRequest(http.MethodPost, apiURL, nil)
