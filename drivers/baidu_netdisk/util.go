@@ -245,6 +245,8 @@ func (d *BaiduNetdisk) generateLocateRand(ts int64, devuid string) string {
 	return hex.EncodeToString(randSha1[:])
 }
 
+const locateMobileUA = "netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;"
+
 func (d *BaiduNetdisk) linkLocate(file model.Obj, _ model.LinkArgs) (*model.Link, error) {
 	if d.BDUSS == "" {
 		return nil, fmt.Errorf("locate 模式需要填写 BDUSS")
@@ -255,56 +257,59 @@ func (d *BaiduNetdisk) linkLocate(file model.Obj, _ model.LinkArgs) (*model.Link
 	ts := time.Now().Unix()
 	devuid := d.generateLocateDevUID()
 	rand := d.generateLocateRand(ts, devuid)
-	apiURL := fmt.Sprintf("https://pcs.baidu.com/rest/2.0/pcs/file?ant=1&check_blue=1&es=1&esl=1&app_id=250528&method=locatedownload&path=%s&ver=4.0&clienttype=17&channel=0&apn_id=1_0&freeisp=0&queryfree=0&use=0&time=%d&rand=%s&devuid=%s&cuid=%s", url.QueryEscape(file.GetPath()), ts, rand, url.QueryEscape(devuid), url.QueryEscape(devuid))
-	var resp LocateDownloadResp
-	_, err := d.request(apiURL, http.MethodPost, func(req *resty.Request) {
-		req.SetHeader("Cookie", fmt.Sprintf("BDUSS=%s", d.BDUSS))
-		req.SetHeader("User-Agent", "netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;")
-	}, &resp)
+
+	// 构造 URL —— 注意：不能使用 d.request()，因为它会自动添加 access_token 参数，
+	// 与 BDUSS cookie 认证冲突，导致签名错误
+	apiURL := fmt.Sprintf("https://pcs.baidu.com/rest/2.0/pcs/file?ant=1&check_blue=1&es=1&esl=1&app_id=250528&method=locatedownload&path=%s&ver=4.0&clienttype=17&channel=0&apn_id=1_0&freeisp=0&queryfree=0&use=0&time=%d&rand=%s&devuid=%s&cuid=%s",
+		url.QueryEscape(file.GetPath()), ts, rand, url.QueryEscape(devuid), url.QueryEscape(devuid))
+
+	// 使用原生 http 请求，避免 d.request() 添加 access_token
+	req, err := http.NewRequest(http.MethodPost, apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("locate download create request: %w", err)
+	}
+	req.Header.Set("Cookie", fmt.Sprintf("BDUSS=%s", d.BDUSS))
+	req.Header.Set("User-Agent", locateMobileUA)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("locate download request: %w", err)
+	}
+	defer res.Body.Close()
+
+	var resp LocateDownloadResp
+	if err = utils.Json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		return nil, fmt.Errorf("locate download parse resp: %w", err)
 	}
 	if resp.Errno != 0 {
 		return nil, fmt.Errorf("locate download errno=%d: %s", resp.Errno, resp.Errmsg)
 	}
 	log.Debugf("[baidu_netdisk] locate download urls count=%d path=%s", len(resp.Urls), file.GetPath())
+
+	locateHeader := http.Header{
+		"Cookie":     []string{fmt.Sprintf("BDUSS=%s", d.BDUSS)},
+		"User-Agent": []string{locateMobileUA},
+	}
 	// 优先选非加密、非nb.cache的直链
 	for _, item := range resp.Urls {
 		if item.Encrypt == 0 && item.URL != "" && !strings.Contains(item.URL, "nb.cache") {
 			log.Debugf("[baidu_netdisk] locate download selected url=%s", item.URL)
-			return &model.Link{
-				URL: item.URL,
-				Header: http.Header{
-					"Cookie":     []string{fmt.Sprintf("BDUSS=%s", d.BDUSS)},
-					"User-Agent": []string{"netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;"},
-				},
-			}, nil
+			return &model.Link{URL: item.URL, Header: locateHeader}, nil
 		}
 	}
 	// 降级：接受nb.cache链接
 	for _, item := range resp.Urls {
 		if item.Encrypt == 0 && item.URL != "" {
 			log.Debugf("[baidu_netdisk] locate download fallback url=%s", item.URL)
-			return &model.Link{
-				URL: item.URL,
-				Header: http.Header{
-					"Cookie":     []string{fmt.Sprintf("BDUSS=%s", d.BDUSS)},
-					"User-Agent": []string{"netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;"},
-				},
-			}, nil
+			return &model.Link{URL: item.URL, Header: locateHeader}, nil
 		}
 	}
 	// 最后降级：接受所有URL（包括加密链接）
 	for _, item := range resp.Urls {
 		if item.URL != "" {
 			log.Warnf("[baidu_netdisk] locate download using encrypted url=%s", item.URL)
-			return &model.Link{
-				URL: item.URL,
-				Header: http.Header{
-					"Cookie":     []string{fmt.Sprintf("BDUSS=%s", d.BDUSS)},
-					"User-Agent": []string{"netdisk;P2SP;3.0.0.8;netdisk;11.12.3;ANG-AN00;android-android;10.0;JSbridge4.4.0;jointBridge;1.1.0;"},
-				},
-			}, nil
+			return &model.Link{URL: item.URL, Header: locateHeader}, nil
 		}
 	}
 	return nil, fmt.Errorf("no usable locate download url (total urls=%d)", len(resp.Urls))

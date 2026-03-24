@@ -368,7 +368,19 @@ func (c *Client) CreateShare(fsID int64, expiry int, password string) (string, e
 	return resp.Link, nil
 }
 
-// CreateShareByPaths 使用网页端 path_list 直接创建分享链接
+// extractBDUSS 从完整 cookie 字符串中提取 BDUSS 值
+func extractBDUSS(cookie string) string {
+	for _, part := range strings.Split(cookie, ";") {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "BDUSS=") {
+			return strings.TrimPrefix(part, "BDUSS=")
+		}
+	}
+	return ""
+}
+
+// CreateShareByPaths 使用网页端 /share/pset 直接创建分享链接
+// 注意：此接口不需要 URL query 参数，只需要 BDUSS cookie 和正确的 Referer
 func (c *Client) CreateShareByPaths(paths []string, expiry int, password string) (string, error) {
 	if len(paths) == 0 {
 		return "", fmt.Errorf("paths is empty")
@@ -377,22 +389,38 @@ func (c *Client) CreateShareByPaths(paths []string, expiry int, password string)
 	if err != nil {
 		return "", fmt.Errorf("marshal path_list: %w", err)
 	}
-	body, err := c.post(baiduBaseURL+"/share/pset", map[string]string{
-		"channel":    "chunlei",
-		"bdstoken":   c.bdstoken,
-		"clienttype": "0",
-		"app_id":     "250528",
-		"web":        "1",
-	}, map[string]string{
-		"path_list":    string(pathList),
-		"period":       fmt.Sprintf("%d", expiry),
-		"pwd":          password,
-		"schannel":     "4",
-		"channel_list": "[]",
-		"share_type":   "9",
-	})
+	// 构造 form body
+	form := url.Values{}
+	form.Set("path_list", string(pathList))
+	form.Set("period", fmt.Sprintf("%d", expiry))
+	form.Set("pwd", password)
+	form.Set("schannel", "4")
+	form.Set("channel_list", "[]")
+	form.Set("share_type", "9")
+
+	// 直接构造请求，不使用 c.post()，避免添加多余的 URL query 参数和错误的 headers
+	req, err := http.NewRequest(http.MethodPost, baiduBaseURL+"/share/pset", strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("create path share request: %w", err)
+	}
+	// 只发送 BDUSS cookie，不发送完整 cookie
+	bduss := extractBDUSS(c.cookie)
+	if bduss == "" {
+		return "", fmt.Errorf("BDUSS not found in cookie")
+	}
+	req.Header.Set("Cookie", "BDUSS="+bduss)
+	req.Header.Set("User-Agent", defaultUA)
+	req.Header.Set("Referer", "https://pan.baidu.com/disk/home")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := c.hc.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("create path share: %w", err)
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("read path share resp: %w", err)
 	}
 	var resp struct {
 		Errno    int    `json:"errno"`
@@ -400,10 +428,10 @@ func (c *Client) CreateShareByPaths(paths []string, expiry int, password string)
 		Shorturl string `json:"shorturl"`
 	}
 	if err = json.Unmarshal(body, &resp); err != nil {
-		return "", fmt.Errorf("parse path share resp: %w", err)
+		return "", fmt.Errorf("parse path share resp: %w (body=%s)", err, string(body))
 	}
 	if resp.Errno != 0 {
-		return "", fmt.Errorf("create path share errno=%d", resp.Errno)
+		return "", fmt.Errorf("create path share errno=%d (body=%s)", resp.Errno, string(body))
 	}
 	if resp.Link != "" {
 		return resp.Link, nil
