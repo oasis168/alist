@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,9 +23,21 @@ const sqliteImportBatchSize = 10000
 // mountPrefix: alist 中对应的挂载路径前缀（如 "/百度网盘"），拼接到 parent_path 前。
 func ImportFromSQLite(ctx context.Context, dbPath string, mountPrefix string) error {
 	defer func() {
-		if err := os.Remove(dbPath); err != nil {
-			log.Warnf("[sqlite_import] remove temp db file failed: %v", err)
+		// 导入完成后将 db 文件移动至 /opt 目录保留，而不是删除
+		destDir := "/opt/alist_db_backup"
+		if err := os.MkdirAll(destDir, 0755); err != nil {
+			log.Warnf("[sqlite_import] mkdir %s failed: %v, will remove instead", destDir, err)
+			os.Remove(dbPath)
+			return
 		}
+		destPath := filepath.Join(destDir, filepath.Base(dbPath))
+		if err := os.Rename(dbPath, destPath); err != nil {
+			// Rename 跨设备会失败，降级用复制+删除
+			log.Warnf("[sqlite_import] move db file failed: %v, will remove instead", err)
+			os.Remove(dbPath)
+			return
+		}
+		log.Infof("[sqlite_import] db file moved to %s", destPath)
 	}()
 
 	db, err := sql.Open("sqlite3", dbPath+"?mode=ro")
