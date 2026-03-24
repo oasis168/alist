@@ -66,7 +66,7 @@ func (m *Meilisearch) Index(ctx context.Context, node model.SearchNode) error {
 	return m.BatchIndex(ctx, []model.SearchNode{node})
 }
 
-const batchIndexSize = 1000
+const batchIndexSize = 5000
 
 func sanitizeString(s string) string {
 	return strings.ToValidUTF8(s, "")

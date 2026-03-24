@@ -97,6 +97,32 @@
 - [x] 跨存储复制文件
 - [x] 单线程下载/串流的多线程下载加速
 
+## 部署与维护
+
+### 一键安装（含 Meilisearch）
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/oasis168/alist/main/install.sh)
+```
+
+安装过程中选择「安装」，并选 `y` 安装 Meilisearch。
+
+### 一键更新
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/oasis168/alist/main/install.sh) update
+```
+
+### Meilisearch 重置（索引损坏时）
+
+```bash
+docker rm -f meilisearch
+rm -rf /opt/meilisearch/data
+# 然后重新运行一键安装脚本
+```
+
+> Key 保存在 `/opt/meilisearch/key.txt`，重装后需在 Alist 后台重新填写。
+
 ## 文档
 
 <https://alistgo.com/zh/>
