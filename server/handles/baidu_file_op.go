@@ -241,10 +241,14 @@ func BaiduFileTransfer(c *gin.Context) {
 	shareLink, err := shareByAccessToken(accessToken, fsID, 1)
 	if err != nil {
 		if strings.Contains(storageDriver.GetStorage().Driver, "Baidu") {
-			shareClient, clientErr := getBaiduShareClient()
-			if clientErr == nil {
-				shareLink, err = shareClient.CreateShareByPaths([]string{baiduPath}, 1, "")
+			// /share/pset 只需要 BDUSS，不需要 bdstoken
+			// 优先用存储自身的 cookie，降级用全局 cookie
+			shareCookie, scErr := getBaiduStorageCookie(mountPrefix)
+			if scErr != nil {
+				shareCookie = cookieItem.Value // 用目标账号 cookie 作降级
 			}
+			shareClient := baidu.NewClient(shareCookie)
+			shareLink, err = shareClient.CreateShareByPaths([]string{baiduPath}, 1, "")
 		}
 		if err != nil {
 			common.ErrorStrResp(c, fmt.Sprintf("生成临时分享链接失败: %v", err), 400)
@@ -324,24 +328,25 @@ func BaiduFileShare(c *gin.Context) {
 	}
 
 	// 优先用挂载存储自身的 cookie 分享（支持多网盘，各用各账号的 cookie）
+	// 注意：/share/pset 只需要 BDUSS cookie，不需要 bdstoken，所以不调用 GetBdstoken
 	cookie, cookieErr := getBaiduStorageCookie(mountPrefix)
 	if cookieErr == nil {
 		client := baidu.NewClient(cookie)
-		if err = client.GetBdstoken(); err == nil {
-			link, shareErr := client.CreateShareByPaths([]string{baiduPath}, req.Period, "")
-			if shareErr == nil {
-				common.SuccessResp(c, gin.H{"link": link, "path": baiduPath})
-				return
-			}
+		link, shareErr := client.CreateShareByPaths([]string{baiduPath}, req.Period, "")
+		if shareErr == nil {
+			common.SuccessResp(c, gin.H{"link": link, "path": baiduPath})
+			return
 		}
+		cookieErr = shareErr // 记录错误，给降级路径用
 	}
 
-	// 存储没有配置 cookie，降级用全局 baidu_transfer_cookie
-	globalClient, globalErr := getBaiduShareClient()
-	if globalErr != nil {
-		common.ErrorStrResp(c, fmt.Sprintf("分享失败: 存储未配置 Cookie(%v)，且未配置全局 baidu_transfer_cookie(%v)", cookieErr, globalErr), 400)
+	// 存储没有配置 cookie 或分享失败，降级用全局 baidu_transfer_cookie
+	globalCookieItem, globalErr := op.GetSettingItemByKey(conf.BaiduTransferCookie)
+	if globalErr != nil || globalCookieItem.Value == "" {
+		common.ErrorStrResp(c, fmt.Sprintf("分享失败: %v", cookieErr), 400)
 		return
 	}
+	globalClient := baidu.NewClient(globalCookieItem.Value)
 	link, err := globalClient.CreateShareByPaths([]string{baiduPath}, req.Period, "")
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("分享失败: %v", err), 400)
