@@ -81,6 +81,8 @@ type SearchAndShareResp struct {
 	FilePath     string `json:"file_path"`
 	FileSize     int64  `json:"file_size"`
 	TotalMatches int    `json:"total_matches"`
+	UK           int64  `json:"uk"`
+	FID          int64  `json:"fid"`
 }
 
 // APIKeyAuth API Key 验证中间件
@@ -199,6 +201,10 @@ func SearchAndShare(c *gin.Context) {
 	}
 
 	client := getBaiduClient(cookie)
+
+	// 获取 UK
+	uk := client.GetUK()
+
 	link, pwd, err := client.CreateShareByPaths([]string{baiduPath}, req.Period, "")
 	if err != nil {
 		common.ErrorStrResp(c, fmt.Sprintf("生成分享链接失败: %v", err), 500)
@@ -212,6 +218,8 @@ func SearchAndShare(c *gin.Context) {
 		FilePath:     fullPath,
 		FileSize:     selectedNode.Size,
 		TotalMatches: int(total),
+		UK:           uk,
+		FID:          selectedNode.FsID,
 	})
 }
 
