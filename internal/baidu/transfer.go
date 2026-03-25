@@ -31,6 +31,7 @@ var (
 type Client struct {
 	cookie   string
 	bdstoken string
+	uk       int64
 	hc       *http.Client
 }
 
@@ -116,6 +117,7 @@ func (c *Client) GetBdstoken() error {
 		Errno  int `json:"errno"`
 		Result struct {
 			Bdstoken string `json:"bdstoken"`
+			UK       int64  `json:"uk"`
 		} `json:"result"`
 	}
 	if err = json.Unmarshal(body, &resp); err != nil {
@@ -125,7 +127,13 @@ func (c *Client) GetBdstoken() error {
 		return fmt.Errorf("get bdstoken errno=%d", resp.Errno)
 	}
 	c.bdstoken = resp.Result.Bdstoken
+	c.uk = resp.Result.UK
 	return nil
+}
+
+// GetUK 获取用户 UK
+func (c *Client) GetUK() int64 {
+	return c.uk
 }
 
 // TransferParams 转存所需参数

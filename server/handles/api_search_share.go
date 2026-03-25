@@ -202,6 +202,12 @@ func SearchAndShare(c *gin.Context) {
 
 	client := getBaiduClient(cookie)
 
+	// 获取 bdstoken 和 UK
+	if err := client.GetBdstoken(); err != nil {
+		common.ErrorStrResp(c, fmt.Sprintf("获取用户信息失败: %v", err), 500)
+		return
+	}
+
 	// 获取 UK
 	uk := client.GetUK()
 
