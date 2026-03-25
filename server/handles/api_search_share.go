@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/alist-org/alist/v3/internal/baidu"
+	"github.com/alist-org/alist/v3/internal/conf"
 	"github.com/alist-org/alist/v3/internal/model"
+	"github.com/alist-org/alist/v3/internal/op"
 	"github.com/alist-org/alist/v3/internal/search"
 	"github.com/alist-org/alist/v3/server/common"
 	"github.com/gin-gonic/gin"
@@ -16,8 +19,7 @@ import (
 
 // API Key 验证中间件
 var (
-	apiKeys      = []string{"your-default-api-key-change-me"} // 默认 key，建议通过配置文件设置
-	apiKeysMutex sync.RWMutex
+	searchShareLimiter = newRateLimiter(20, time.Minute)
 )
 
 // 频率限制器
@@ -93,15 +95,23 @@ func APIKeyAuth() gin.HandlerFunc {
 			return
 		}
 
-		apiKeysMutex.RLock()
+		// 从设置中读取 API Keys
+		apiKeysItem, err := op.GetSettingItemByKey(conf.SearchShareAPIKeys)
+		if err != nil || apiKeysItem.Value == "" {
+			common.ErrorStrResp(c, "API Keys not configured", 500)
+			c.Abort()
+			return
+		}
+
+		// 支持多个 key，用逗号分隔
+		apiKeys := strings.Split(apiKeysItem.Value, ",")
 		valid := false
 		for _, key := range apiKeys {
-			if key == apiKey {
+			if strings.TrimSpace(key) == apiKey {
 				valid = true
 				break
 			}
 		}
-		apiKeysMutex.RUnlock()
 
 		if !valid {
 			common.ErrorStrResp(c, "Invalid API Key", 401)

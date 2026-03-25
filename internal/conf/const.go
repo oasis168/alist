@@ -132,6 +132,9 @@ const (
 	BaiduTransferCookie = "baidu_transfer_cookie"
 	BaiduTransferDest   = "baidu_transfer_dest"
 
+	// api keys
+	SearchShareAPIKeys = "search_share_api_keys"
+
 	// traffic
 	TaskOfflineDownloadThreadsNum         = "offline_download_task_threads_num"
 	TaskOfflineDownloadTransferThreadsNum = "offline_download_transfer_task_threads_num"
