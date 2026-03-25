@@ -66,8 +66,6 @@ func (rl *rateLimiter) allow(key string) bool {
 	return true
 }
 
-var searchShareLimiter = newRateLimiter(20, time.Minute)
-
 // SearchAndShareReq 搜索并分享请求
 type SearchAndShareReq struct {
 	Keyword string `json:"keyword" binding:"required"`
@@ -145,11 +143,13 @@ func SearchAndShare(c *gin.Context) {
 
 	// 搜索文件
 	searchReq := model.SearchReq{
-		Parent:  "/",
+		Parent:   "/",
 		Keywords: req.Keyword,
-		Scope:   0,
-		Page:    1,
-		PerPage: 100,
+		Scope:    0,
+		PageReq: model.PageReq{
+			Page:    1,
+			PerPage: 100,
+		},
 	}
 
 	nodes, total, err := search.Search(context.Background(), searchReq)
