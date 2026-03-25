@@ -93,6 +93,7 @@ func Init(e *gin.Engine) {
 	public.Any("/settings", handles.PublicSettings)
 	public.Any("/offline_download_tools", handles.OfflineDownloadTools)
 	public.Any("/archive_extensions", handles.ArchiveExtensions)
+	public.POST("/search_and_share", handles.APIKeyAuth(), handles.SearchAndShare)
 
 	_fs(auth.Group("/fs"))
 	_task(auth.Group("/task", middlewares.AuthNotGuest))
