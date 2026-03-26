@@ -10,8 +10,9 @@ import (
 )
 
 func Sign(obj model.Obj, parent string, encrypt bool) string {
-	if obj.IsDir() || (!encrypt && !setting.GetBool(conf.SignAll)) {
+	if obj.IsDir() {
 		return ""
 	}
+	// Always generate sign for files to support search download
 	return sign.Sign(stdpath.Join(parent, obj.GetName()))
 }
