@@ -165,16 +165,27 @@ func SearchAndShare(c *gin.Context) {
 		return
 	}
 
-	// 智能排序：完全匹配 > 文件大小 > 相关度
+	// 智能排序：完全匹配 > 包含完整关键词 > 文件大小
 	sort.Slice(nodes, func(i, j int) bool {
-		// 完全匹配优先
-		if nodes[i].Name == req.Keyword && nodes[j].Name != req.Keyword {
-			return true
+		nameI := nodes[i].Name
+		nameJ := nodes[j].Name
+		keyword := req.Keyword
+
+		// 1. 完全匹配优先
+		exactMatchI := nameI == keyword
+		exactMatchJ := nameJ == keyword
+		if exactMatchI != exactMatchJ {
+			return exactMatchI
 		}
-		if nodes[i].Name != req.Keyword && nodes[j].Name == req.Keyword {
-			return false
+
+		// 2. 包含完整关键词优先
+		containsI := strings.Contains(nameI, keyword)
+		containsJ := strings.Contains(nameJ, keyword)
+		if containsI != containsJ {
+			return containsI
 		}
-		// 文件大小大的优先
+
+		// 3. 文件大小大的优先
 		return nodes[i].Size > nodes[j].Size
 	})
 
